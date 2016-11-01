@@ -11,7 +11,7 @@
 #import "DVProgressView.h"
 
 @interface ViewController ()
-
+@property (nonatomic, strong) NSMutableArray<NSTimer *> *timers;
 @end
 
 @implementation ViewController
@@ -25,6 +25,8 @@
                                                                                              action:@selector(onRefreshBarButtonTouch)]];
     
     [self.collectionView setScrollEnabled:NO];
+    
+    self.timers = [NSMutableArray new];
 }
 
 #pragma mark UICollectionViewDataSource, UICollectionViewDelegate
@@ -48,24 +50,19 @@
     [container setCurrentValue:.0];
     [container setProgressType:(DVProgressType)indexPath.item];
     
-    dispatch_async(dispatch_queue_create([NSString stringWithFormat:
-                                          @"test_%d_%d",
-                                          (int)indexPath.section,
-                                          (int)indexPath.item].UTF8String, NULL), ^{
-        float currentValue = .0;
-        float step = .01;
-        
-        while ((currentValue += step) <= container.maxValue) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [container setCurrentValue:currentValue];
-            });
-            
-            [NSThread sleepForTimeInterval:step];
-        }
-    });
+    [self.timers addObject:[NSTimer scheduledTimerWithTimeInterval:.01
+                                                           repeats:YES
+                                                             block:
+                            ^(NSTimer * _Nonnull timer) {
+                                if ((container.currentValue + timer.timeInterval) <= container.maxValue) {
+                                    container.currentValue += timer.timeInterval;
+                                } else {
+                                    [timer invalidate];
+                                }
+                            }]];
     
     UIImageView *imageView = (UIImageView *)[container viewWithTag:101];
-    [imageView setImage:[UIImage imageNamed:[NSString stringWithFormat:@"medal%ld", indexPath.row]]];
+    [imageView setImage:[UIImage imageNamed:[NSString stringWithFormat:@"medal%ld", (indexPath.row + 1)]]];
     
     [cell setBackgroundColor:[UIColor clearColor]];
     
@@ -74,7 +71,14 @@
 
 #pragma mark - Actions
 - (void)onRefreshBarButtonTouch {
+    for (NSTimer *timer in self.timers) {
+        if (timer.isValid) {
+            [timer invalidate];
+        }
+    }
+    [self.timers removeAllObjects];
     
+    [self.collectionView reloadData];
 }
 
 @end
